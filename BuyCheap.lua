@@ -35,9 +35,29 @@ end
 function BuyCheap()
 	local amount = buycheap_amount:GetNumber()
 	local item_name = BrowseName:GetText()
-	local result = QueryAuctionItems(item_name, nil, nil, 0, nil, 0, true, true, nil)
-	print(CanSendAuctionQuery())
-	print(result)
+	BuyCheap_Query(item_name, {}, {}, 0)		
+end
+
+function BuyCheap_Query(item_name, prices, weights, page)
+	QueryAuctionItems(item_name, nil, nil, 0, 0, 0, page, 0, false)
+	BuyCheap_wait(4, BuyCheap_FindAllItems, item_name, prices, weights, page)
+end
+
+function BuyCheap_FindAllItems(item_name, prices, weights, page)
+	local current, total = GetNumAuctionItems("list")
+	local cur_num = page * 50
+	for i = 0, current - 1 do
+		local _, _, count, _, _, _, _, _, buyoutPrice, _, _, _, _ = GetAuctionItemInfo("list", i + 1)
+		prices[cur_num + i] = buyoutPrice
+		weights[cur_num + i] = count
+	end
+	if cur_num + current == total then
+		for i = 0, total - 1 do
+			--print(prices[i], weights[i])
+		end
+	else
+		BuyCheap_Query(item_name, prices, weights, page + 1)
+	end
 end
 
 -- wait function below
