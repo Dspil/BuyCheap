@@ -35,15 +35,15 @@ end
 function BuyCheap()
 	local amount = buycheap_amount:GetNumber()
 	local item_name = BrowseName:GetText()
-	BuyCheap_Query(item_name, {}, {}, 0)		
+	BuyCheap_Query(item_name, {}, {}, 0, amount)		
 end
 
-function BuyCheap_Query(item_name, prices, weights, page)
+function BuyCheap_Query(item_name, prices, weights, page, amount)
 	QueryAuctionItems(item_name, nil, nil, 0, 0, 0, page, 0, false)
-	BuyCheap_wait(4, BuyCheap_FindAllItems, item_name, prices, weights, page)
+	BuyCheap_wait(4, BuyCheap_FindAllItems, item_name, prices, weights, page, amount)
 end
 
-function BuyCheap_FindAllItems(item_name, prices, weights, page)
+function BuyCheap_FindAllItems(item_name, prices, weights, page, amount)
 	local current, total = GetNumAuctionItems("list")
 	local cur_num = page * 50
 	for i = 0, current - 1 do
@@ -52,12 +52,62 @@ function BuyCheap_FindAllItems(item_name, prices, weights, page)
 		weights[cur_num + i] = count
 	end
 	if cur_num + current == total then
-		for i = 0, total - 1 do
-			--print(prices[i], weights[i])
-		end
+		BuyCheap_itemstobuy, BuyCheap_itemstobuy_len = BuyCheap_knapsack(weights, prices, amount, total)
 	else
-		BuyCheap_Query(item_name, prices, weights, page + 1)
+		BuyCheap_Query(item_name, prices, weights, page + 1, amount)
 	end
+end
+
+-- knapsack function
+
+function BuyCheap_knapsack(weights, prices, W, n)
+    local dpt = {}
+    local prev = 0
+    local cur = 0
+    for item = 0, n do
+        dpt[item] = {}
+        for weight = 0, W do
+            if item == 0 or weight == 0 then
+                dpt[item][weight] = {0, false}
+            else
+                if weights[item - 1] > weight then
+                    dpt[item][weight] = {dpt[item - 1][weight][1], false}
+                else
+                    if dpt[item - 1][weight - weights[item - 1]][1] == 0 then
+                        if weights[item - 1] == weight then
+                            dpt[item][weight] = {prices[item-1], true}
+                        else
+                            dpt[item][weight] = {dpt[item-1][weight][1], false}
+                        end
+                    else
+                        prev = dpt[item - 1][weight][1]
+                        cur = dpt[item - 1][weight - weights[item - 1]][1] + 1 / prices[item - 1]
+                        if cur > prev then
+                            dpt[item][weight] = {cur, true}
+                        else
+                            dpt[item][weight] = {prev, false}
+                        end
+                    end
+                end
+            end
+        end
+    end
+    local indices = {}
+    local i = n
+    local j = W
+    local c = 0
+    while i > 0 do
+        if dpt[i][j][2] then
+            indices[c] = i - 1
+            c = c + 1
+            j = j - weights[i - 1]
+        end
+        i =  i - 1
+    end
+    if c == 0 then
+        return nil, nil
+    end
+    return indices, c
 end
 
 -- wait function below
