@@ -1,0 +1,7 @@
+## Interface: 30305
+## Author: Danai Efstathiou
+## Title: BuyCheap
+## Notes: Find smallest buyout price in auction house
+## Version: 1.0
+BuyCheap.xml
+BuyCheap.lua
