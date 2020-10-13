@@ -36,6 +36,24 @@ function BuyCheap_OnLoad()
 		hideOnEscape = true,
 		preferredIndex = 3,
 	}
+	
+	StaticPopupDialogs["BUYCHEAP_POPUP_ONEITEM"] = {
+		text = "Buy quantity %s for:",
+		button1 = "Ok",
+		timeout = 0,
+		hasMoneyFrame = true,
+		OnShow = function(self, amount)
+			MoneyFrame_Update(self.moneyFrame, BuyCheap_buyoutPrice);
+		end,
+		OnAccept = function()
+			PlaceAuctionBid("list", BuyCheap_cur_i % 50 + 1, BuyCheap_buyoutPrice)
+			BuyCheap_itemi = BuyCheap_itemi - 1
+			BuyCheap_wait(1, BuyCheap_BuyItems, BuyCheap_cur_page, BuyCheap_cur_i)
+		end,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
 end
 
 function BuyCheap_EventHandler(event)
@@ -119,9 +137,10 @@ function BuyCheap_BuyItems(cur_page, cur_i)
 		end
 		local itemname, _, count, _, _, _, _, _, buyoutPrice, _, _, _, _ = GetAuctionItemInfo("list", cur_i % 50 + 1)
 		if count == BuyCheap_weights[BuyCheap_itemstobuy[BuyCheap_itemi]] and buyoutPrice == BuyCheap_prices[BuyCheap_itemstobuy[BuyCheap_itemi]] and itemname == BuyCheap_itemname then
-			PlaceAuctionBid("list", cur_i % 50 + 1, buyoutPrice)
-			BuyCheap_itemi = BuyCheap_itemi - 1
-			print("in")
+			BuyCheap_buyoutPrice = buyoutPrice
+			BuyCheap_cur_i = cur_i
+			BuyCheap_cur_page = cur_page
+			StaticPopup_Show("BUYCHEAP_POPUP_ONEITEM", count)
 			return nil
 		else
 			cur_i = cur_i + 1
