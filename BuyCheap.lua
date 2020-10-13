@@ -8,6 +8,32 @@ function BuyCheap_OnLoad()
 	buycheap_amount:SetNumeric()
 	buycheap_amount:SetAutoFocus(false)
 	buycheap_amount:Hide()
+	
+	StaticPopupDialogs["BUYCHEAP_POPUP_SUCCESS"] = {
+		text = "Best price found for %s item%s:",
+		hasMoneyFrame = true,
+		OnShow = function(self, amount, formatter)
+			MoneyFrame_Update(self.moneyFrame, BuyCheap_itemstobuy_price);
+		end,
+		button1 = "Buy",
+		button2 = "Cancel",
+		OnAccept = BuyCheap_BuyItems,
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	
+	StaticPopupDialogs["BUYCHEAP_POPUP_FAILURE"] = {
+		text = "Could not find a way to purchase exactly %s item%s",
+		OnShow = function(self, amount, formatter)
+		end,
+		button1 = "Ok",
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
 end
 
 function BuyCheap_EventHandler(event)
@@ -30,7 +56,7 @@ function BuyCheap_EventHandler(event)
 
 end
 
--- open mail logic
+-- logic
 
 function BuyCheap()
 	local amount = buycheap_amount:GetNumber()
@@ -52,37 +78,58 @@ function BuyCheap_FindAllItems(item_name, prices, weights, page, amount)
 		weights[cur_num + i] = count
 	end
 	if cur_num + current == total then
-		BuyCheap_itemstobuy, BuyCheap_itemstobuy_len = BuyCheap_knapsack(weights, prices, amount, total)
+		BuyCheap_itemstobuy, BuyCheap_itemstobuy_price, BuyCheap_itemstobuy_len = BuyCheap_Knapsack(weights, prices, amount, total)
+		local formatter = ""
+		if amount > 1 then formatter = "s" end
+		if BuyCheap_itemstobuy == nil then
+			StaticPopup_Show("BUYCHEAP_POPUP_FAILURE", tostring(amount), formatter)
+		else
+			StaticPopup_Show("BUYCHEAP_POPUP_SUCCESS", tostring(amount), formatter)
+		end
 	else
 		BuyCheap_Query(item_name, prices, weights, page + 1, amount)
 	end
 end
 
--- knapsack function
+function BuyCheap_BuyItems()
 
-function BuyCheap_knapsack(weights, prices, W, n)
+end
+
+-- Knapsack function
+function BuyCheap_Knapsack(weights, prices, W, n)
     local dpt = {}
     local prev = 0
     local cur = 0
+    local cur1 = 0
     for item = 0, n do
         dpt[item] = {}
         for weight = 0, W do
             if item == 0 or weight == 0 then
                 dpt[item][weight] = {0, false}
+			elseif prices[item - 1] == 0 then
+				dpt[item][weight] = {dpt[item-1][weight][1], false}
             else
+                prev = dpt[item - 1][weight][1]
                 if weights[item - 1] > weight then
-                    dpt[item][weight] = {dpt[item - 1][weight][1], false}
+                    dpt[item][weight] = {prev, false}
                 else
-                    if dpt[item - 1][weight - weights[item - 1]][1] == 0 then
+                    cur = dpt[item - 1][weight - weights[item - 1]][1] + prices[item - 1]
+                    cur1 = dpt[item - 1][weight - weights[item - 1]][1]
+                    if prev == 0 and cur1 == 0 then
                         if weights[item - 1] == weight then
-                            dpt[item][weight] = {prices[item-1], true}
+                            dpt[item][weight] = {cur, true}
                         else
-                            dpt[item][weight] = {dpt[item-1][weight][1], false}
+                            dpt[item][weight] = {0, false}
+                        end
+                    elseif prev == 0 and cur1 ~= 0 then
+                        dpt[item][weight] = {cur, true}
+                    elseif prev ~= 0 and cur1 == 0 then
+                        if weights[item - 1] == weight and cur < prev then
+                          dpt[item][weight] = {cur, true}
+                        else dpt[item][weight] = {prev, false}
                         end
                     else
-                        prev = dpt[item - 1][weight][1]
-                        cur = dpt[item - 1][weight - weights[item - 1]][1] + 1 / prices[item - 1]
-                        if cur > prev then
+                        if cur < prev then
                             dpt[item][weight] = {cur, true}
                         else
                             dpt[item][weight] = {prev, false}
@@ -92,7 +139,7 @@ function BuyCheap_knapsack(weights, prices, W, n)
             end
         end
     end
-    local indices = {}
+	local indices = {}
     local i = n
     local j = W
     local c = 0
@@ -107,8 +154,8 @@ function BuyCheap_knapsack(weights, prices, W, n)
     if c == 0 then
         return nil, nil
     end
-    return indices, c
-end
+    return indices, dpt[n][W][1], c
+  end
 
 -- wait function below
 
