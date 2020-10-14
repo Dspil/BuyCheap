@@ -43,7 +43,7 @@ function BuyCheap_OnLoad()
 	StaticPopupDialogs["BUYCHEAP_POPUP_ONEITEM"] = {
 		text = "Buy quantity %s for:",
 		button1 = "Ok",
-		button2 = "Cancel",
+		button2 = "Skip",
 		timeout = 0,
 		hasMoneyFrame = true,
 		OnShow = function(self, amount)
