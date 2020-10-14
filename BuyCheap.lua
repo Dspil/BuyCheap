@@ -20,6 +20,9 @@ function BuyCheap_OnLoad()
 		OnAccept = function()
 			BuyCheap_BuyItems(-1, 1)
 		end,
+		OnCancel = function()
+			BuyCheap_running = false
+		end,
 		timeout = 0,
 		whileDead = true,
 		hideOnEscape = true,
@@ -27,7 +30,7 @@ function BuyCheap_OnLoad()
 	}
 	
 	StaticPopupDialogs["BUYCHEAP_POPUP_FAILURE"] = {
-		text = "Could not find a way to purchase exactly %s item%s",
+		text = "Could not find a way to purchase exactly %s item%s!",
 		OnShow = function(self, amount, formatter)
 		end,
 		button1 = "Ok",
@@ -40,6 +43,7 @@ function BuyCheap_OnLoad()
 	StaticPopupDialogs["BUYCHEAP_POPUP_ONEITEM"] = {
 		text = "Buy quantity %s for:",
 		button1 = "Ok",
+		button2 = "Cancel",
 		timeout = 0,
 		hasMoneyFrame = true,
 		OnShow = function(self, amount)
@@ -48,7 +52,36 @@ function BuyCheap_OnLoad()
 		OnAccept = function()
 			PlaceAuctionBid("list", BuyCheap_cur_i % 50 + 1, BuyCheap_buyoutPrice)
 			BuyCheap_itemi = BuyCheap_itemi - 1
-			BuyCheap_wait(1, BuyCheap_BuyItems, BuyCheap_cur_page, BuyCheap_cur_i)
+			BuyCheap_wait(1.5, BuyCheap_BuyItems, BuyCheap_cur_page, BuyCheap_cur_i)
+		end,
+		OnCancel = function()
+			BuyCheap_itemi = BuyCheap_itemi - 1
+			BuyCheap_wait(1.5, BuyCheap_BuyItems, BuyCheap_cur_page, BuyCheap_cur_i)
+		end,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	
+	StaticPopupDialogs["BUYCHEAP_POPUP_END"] = {
+		text = "Process finished %s!",
+		OnShow = function(self, didfail)
+			BuyCheap_running = false
+		end,
+		button1 = "Ok",
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	
+	StaticPopupDialogs["BUYCHEAP_POPUP_CANCEL"] = {
+		text = "BuyCheap is scanning the Auction House...",
+		button1 = "Cancel",
+		timeout = 0,
+		OnAccept = function()
+			BuyCheap_control = true
+			BuyCheap_running = false
 		end,
 		whileDead = true,
 		hideOnEscape = true,
@@ -72,6 +105,12 @@ function BuyCheap_EventHandler(event)
 	else 
 		buycheap_button:Hide()
 		buycheap_amount:Hide()
+		BuyCheap_running = false
+		StaticPopup_Hide("BUYCHEAP_POPUP_CANCEL")
+		StaticPopup_Hide("BUYCHEAP_POPUP_SUCCESS")
+		StaticPopup_Hide("BUYCHEAP_POPUP_FAILURE")
+		StaticPopup_Hide("BUYCHEAP_POPUP_ONEITEM")
+		StaticPopup_Hide("BUYCHEAP_POPUP_END")
 	end
 
 end
@@ -79,12 +118,17 @@ end
 -- logic
 
 function BuyCheap()
+	if BuyCheap_running then return nil end
 	local amount = buycheap_amount:GetNumber()
+	BuyCheap_control = false
+	BuyCheap_running = true
 	BuyCheap_itemname = BrowseName:GetText()
-	BuyCheap_Query({}, {}, 0, amount)		
+	StaticPopup_Show("BUYCHEAP_POPUP_CANCEL")
+	BuyCheap_Query({}, {}, 0, amount)
 end
 
 function BuyCheap_Query(prices, weights, page, amount)
+	if BuyCheap_control then return nil end
 	QueryAuctionItems(BuyCheap_itemname, nil, nil, 0, 0, 0, page, 0, false)
 	BuyCheap_wait(4, BuyCheap_FindAllItems, prices, weights, page, amount)
 end
@@ -94,7 +138,7 @@ function BuyCheap_FindAllItems(prices, weights, page, amount)
 	local cur_num = page * 50
 	for i = 0, current - 1 do
 		local itemname, _, count, _, _, _, _, _, buyoutPrice, _, _, _, _ = GetAuctionItemInfo("list", i + 1)
-		if itemname == BuyCheap_itemname then
+		if strlower(itemname) == strlower(BuyCheap_itemname) then
 			prices[cur_num + i] = buyoutPrice
 		else
 			prices[cur_num + i] = 0
@@ -102,6 +146,7 @@ function BuyCheap_FindAllItems(prices, weights, page, amount)
 		weights[cur_num + i] = count
 	end
 	if cur_num + current == total then
+		StaticPopup_Hide("BUYCHEAP_POPUP_CANCEL")
 		BuyCheap_itemstobuy, BuyCheap_itemstobuy_price, BuyCheap_itemstobuy_len = BuyCheap_Knapsack(weights, prices, amount, total)
 		BuyCheap_weights = weights
 		BuyCheap_prices = prices
@@ -129,14 +174,17 @@ function BuyCheap_booltoint(b)
 end
 
 function BuyCheap_BuyItems(cur_page, cur_i)
-	if BuyCheap_itemi == -1 then return nil end
+	if BuyCheap_itemi == -1 then
+		StaticPopup_Show("BUYCHEAP_POPUP_END", "succesfully")
+		return nil 
+	end
 	while cur_i <= BuyCheap_totalitems do
 		if floor(cur_i / 50) + BuyCheap_booltoint(cur_i % 50 > 0) - 1 ~= cur_page then
 			BuyCheap_BuyQuery(cur_page + 1, cur_i)
 			return nil
 		end
 		local itemname, _, count, _, _, _, _, _, buyoutPrice, _, _, _, _ = GetAuctionItemInfo("list", cur_i % 50 + 1)
-		if count == BuyCheap_weights[BuyCheap_itemstobuy[BuyCheap_itemi]] and buyoutPrice == BuyCheap_prices[BuyCheap_itemstobuy[BuyCheap_itemi]] and itemname == BuyCheap_itemname then
+		if count == BuyCheap_weights[BuyCheap_itemstobuy[BuyCheap_itemi]] and buyoutPrice == BuyCheap_prices[BuyCheap_itemstobuy[BuyCheap_itemi]] and strlower(itemname) == strlower(BuyCheap_itemname) then
 			BuyCheap_buyoutPrice = buyoutPrice
 			BuyCheap_cur_i = cur_i
 			BuyCheap_cur_page = cur_page
@@ -145,10 +193,12 @@ function BuyCheap_BuyItems(cur_page, cur_i)
 		else
 			cur_i = cur_i + 1
 		end
-	end	
+	end
+	StaticPopup_Show("BUYCHEAP_POPUP_END", "unsuccesfully")
 end
 
 -- Knapsack function
+
 function BuyCheap_Knapsack(weights, prices, W, n)
     local dpt = {}
     local prev = 0
