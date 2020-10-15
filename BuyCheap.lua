@@ -32,6 +32,7 @@ function BuyCheap_OnLoad()
 	StaticPopupDialogs["BUYCHEAP_POPUP_FAILURE"] = {
 		text = "Could not find a way to purchase exactly %s item%s!",
 		OnShow = function(self, amount, formatter)
+			BuyCheap_running = false
 		end,
 		button1 = "Ok",
 		timeout = 0,
