@@ -6,6 +6,7 @@ function BuyCheap_OnLoad()
 	
 	buycheap_amount = CreateFrame("EditBox", "MyBox", UIParent, "InputBoxTemplate")
 	buycheap_amount:SetNumeric()
+	buycheap_amount:SetScript("OnEnterPressed", BuyCheap)
 	buycheap_amount:SetAutoFocus(false)
 	buycheap_amount:Hide()
 	
@@ -41,7 +42,7 @@ function BuyCheap_OnLoad()
 		preferredIndex = 3,
 	}
 	
-	StaticPopupDialogs["BUYCHEAP_POPUP_ONEITEM"] = {
+	StaticPopupDialogs["BUYCHEAP_POPUP_ONEPAGEITEMS"] = {
 		text = "Buy quantity %s for:",
 		button1 = "Ok",
 		button2 = "Skip",
@@ -51,13 +52,15 @@ function BuyCheap_OnLoad()
 			MoneyFrame_Update(self.moneyFrame, BuyCheap_buyoutPrice);
 		end,
 		OnAccept = function()
-			PlaceAuctionBid("list", BuyCheap_cur_i % 50 + 1, BuyCheap_buyoutPrice)
-			BuyCheap_itemi = BuyCheap_itemi - 1
-			BuyCheap_wait(1.5, BuyCheap_BuyItems, BuyCheap_cur_page, BuyCheap_cur_i)
+			for i = 1, getn(BuyCheap_itemstobid) do
+				PlaceAuctionBid("list", BuyCheap_itemstobid[i][2], BuyCheap_itemstobid[i][1])
+				BuyCheap_itemi = BuyCheap_itemi - 1
+			end
+			BuyCheap_wait(0.5, BuyCheap_BuyQuery, BuyCheap_cur_page)
 		end,
 		OnCancel = function()
-			BuyCheap_itemi = BuyCheap_itemi - 1
-			BuyCheap_wait(1.5, BuyCheap_BuyItems, BuyCheap_cur_page, BuyCheap_cur_i)
+			BuyCheap_itemi = BuyCheap_itemi - getn(BuyCheap_itemstobid)
+			BuyCheap_wait(1.5, BuyCheap_BuyQuery, BuyCheap_cur_page + 1)
 		end,
 		whileDead = true,
 		hideOnEscape = true,
@@ -165,37 +168,48 @@ function BuyCheap_FindAllItems(prices, weights, page, amount)
 	end
 end
 
-function BuyCheap_BuyQuery(page, i)
+function BuyCheap_BuyQuery(page)
 	QueryAuctionItems(BuyCheap_itemname, nil, nil, 0, 0, 0, page, 0, false)
-	BuyCheap_wait(4, BuyCheap_BuyItems, page, i)
+	BuyCheap_wait(4, BuyCheap_BuyItems, page)
 end
 
 function BuyCheap_booltoint(b)
 	if b then return 1 else return 0 end
 end
 
-function BuyCheap_BuyItems(cur_page, cur_i)
+function BuyCheap_BuyItems(cur_page)
 	if BuyCheap_itemi == -1 then
 		StaticPopup_Show("BUYCHEAP_POPUP_END", "succesfully")
 		return nil 
 	end
-	while cur_i <= BuyCheap_totalitems do
-		if floor(cur_i / 50) + BuyCheap_booltoint(cur_i % 50 > 0) - 1 ~= cur_page then
-			BuyCheap_BuyQuery(cur_page + 1, cur_i)
-			return nil
-		end
-		local itemname, _, count, _, _, _, _, _, buyoutPrice, _, _, _, _ = GetAuctionItemInfo("list", cur_i % 50 + 1)
-		if count == BuyCheap_weights[BuyCheap_itemstobuy[BuyCheap_itemi]] and buyoutPrice == BuyCheap_prices[BuyCheap_itemstobuy[BuyCheap_itemi]] and strlower(itemname) == strlower(BuyCheap_itemname) then
-			BuyCheap_buyoutPrice = buyoutPrice
-			BuyCheap_cur_i = cur_i
-			BuyCheap_cur_page = cur_page
-			StaticPopup_Show("BUYCHEAP_POPUP_ONEITEM", count)
-			return nil
-		else
-			cur_i = cur_i + 1
+	local pageitems, _ = GetNumAuctionItems("list")
+	if pageitems == 0 then
+		StaticPopup_Show("BUYCHEAP_POPUP_END", "unsuccesfully")
+		return nil 
+	end
+	local itemstobid = {}
+	local itemstobid_i = 1
+	local count_all = 0
+	BuyCheap_buyoutPrice = 0
+	local item_i = BuyCheap_itemi
+	for i = 1, pageitems do
+		local itemname, _, count, _, _, _, _, _, buyoutPrice, _, _, _, _ = GetAuctionItemInfo("list", i)
+		if count == BuyCheap_weights[BuyCheap_itemstobuy[item_i]] and buyoutPrice == BuyCheap_prices[BuyCheap_itemstobuy[item_i]] and strlower(itemname) == strlower(BuyCheap_itemname) then
+			count_all = count_all + count
+			BuyCheap_buyoutPrice = BuyCheap_buyoutPrice + buyoutPrice
+			itemstobid[itemstobid_i] = {buyoutPrice, i}
+			itemstobid_i = itemstobid_i + 1
+			item_i = item_i - 1
 		end
 	end
-	StaticPopup_Show("BUYCHEAP_POPUP_END", "unsuccesfully")
+	if count_all > 0 then
+		print("skata", getn(itemstobid))
+		BuyCheap_itemstobid = itemstobid
+		BuyCheap_cur_page = cur_page
+		StaticPopup_Show("BUYCHEAP_POPUP_ONEPAGEITEMS", count_all)
+	else
+		BuyCheap_BuyQuery(cur_page + 1)
+	end
 end
 
 -- Knapsack function
