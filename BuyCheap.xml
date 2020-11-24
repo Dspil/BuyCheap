@@ -10,10 +10,9 @@
 		BuyCheap_OnLoad()
 		self:RegisterEvent("AUCTION_HOUSE_SHOW");
 		self:RegisterEvent("AUCTION_HOUSE_CLOSED");
+		self:RegisterEvent("ADDON_LOADED");
         </OnLoad>
-	<OnEvent> 
-		BuyCheap_EventHandler(event); 
-	</OnEvent>
+	<OnEvent function="BuyCheap_EventHandler"/>
     </Scripts>
 </Frame>
 </Ui>

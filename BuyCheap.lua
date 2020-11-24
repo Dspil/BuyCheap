@@ -56,7 +56,11 @@ function BuyCheap_OnLoad()
 				PlaceAuctionBid("list", BuyCheap_itemstobid[i][2], BuyCheap_itemstobid[i][1])
 				BuyCheap_itemi = BuyCheap_itemi - 1
 			end
-			BuyCheap_wait(0.5, BuyCheap_BuyQuery, BuyCheap_cur_page)
+			if BuyCheap_itemi == -1 then
+				StaticPopup_Show("BUYCHEAP_POPUP_END", "succesfully")
+			else
+				BuyCheap_wait(0.5, BuyCheap_BuyQuery, BuyCheap_cur_page)
+			end
 		end,
 		OnCancel = function()
 			BuyCheap_itemi = BuyCheap_itemi - getn(BuyCheap_itemstobid)
@@ -93,7 +97,13 @@ function BuyCheap_OnLoad()
 	}
 end
 
-function BuyCheap_EventHandler(event)
+function BuyCheap_EventHandler(self, event, arg1)
+	if event == "ADDON_LOADED" and arg1 == "BuyCheap" then
+		if BuyCheap_waitDuration == nil then
+			BuyCheap_waitDuration = 4
+		end
+		BuyCheap_BlizzardOptions()
+	end
 	if event == "AUCTION_HOUSE_SHOW" then
 		buycheap_button:SetParent("AuctionFrameBrowse")
 		buycheap_button:SetPoint("TOP", "AuctionFrameBrowse", buycheap_button:GetParent():GetWidth() / 3.3, -buycheap_button:GetParent():GetHeight() / 12)
@@ -119,6 +129,53 @@ function BuyCheap_EventHandler(event)
 
 end
 
+function BuyCheap_roundFormat(a, b)
+	a = a * 10 ^ b
+	if a >= floor(a) + 0.5 then
+		a = ceil(a)
+	else
+		a = floor(a)
+	end
+	return tostring((a - a % 10 ^ b) / (10 ^ b)) .. "." .. tostring(floor(a % (10 ^ b)))
+end
+
+function BuyCheap_BlizzardOptions()
+
+	-- Create main frame for information text
+	local BuyCheap_Options = CreateFrame("FRAME", "BuyCheap_Options")
+	BuyCheap_Options.refresh = function (self) BuyCheap_Slider:SetValue(floor((BuyCheap_waitDuration - 2) / 0.2 + 0.4)) end
+	BuyCheap_Options.name = GetAddOnMetadata("BuyCheap", "Title")
+	InterfaceOptions_AddCategory(BuyCheap_Options)
+
+	local BuyCheap_OptionsHeader = BuyCheap_Options:CreateFontString(nil, "ARTWORK")
+	BuyCheap_OptionsHeader:SetFontObject(GameFontNormalLarge)
+	BuyCheap_OptionsHeader:SetJustifyH("LEFT") 
+	BuyCheap_OptionsHeader:SetJustifyV("TOP")
+	BuyCheap_OptionsHeader:ClearAllPoints()
+	BuyCheap_OptionsHeader:SetPoint("TOPLEFT", 16, -16)
+	BuyCheap_OptionsHeader:SetText("BuyCheap Options")
+	
+	local BuyCheap_Slider = CreateFrame("Slider", "BuyCheap_Slider", BuyCheap_Options, "OptionsSliderTemplate")
+	BuyCheap_Slider:SetWidth(300)
+	BuyCheap_Slider:SetHeight(20)
+	BuyCheap_Slider:SetOrientation('HORIZONTAL')
+	BuyCheap_Slider.tooltipText = 'Duration Between AH page loading (the lower, the faster will the procedure be but it may fail)'
+	getglobal(BuyCheap_Slider:GetName() .. 'Low'):SetText('2');
+	getglobal(BuyCheap_Slider:GetName() .. 'High'):SetText('8');
+	getglobal(BuyCheap_Slider:GetName() .. 'Text'):SetText("Page Update Every " .. BuyCheap_roundFormat(BuyCheap_waitDuration, 1) .. " s");
+	BuyCheap_Slider:SetValue(floor((BuyCheap_waitDuration - 2) / 0.2 + 0.4))
+	BuyCheap_Slider:SetMinMaxValues(0, 30)
+	BuyCheap_Slider:SetValueStep(1)
+	BuyCheap_Slider:SetPoint("TOPLEFT", BuyCheap_OptionsHeader, "BOTTOMLEFT", 0, -50)
+	BuyCheap_Slider:SetScript("OnValueChanged", 
+	function ()
+		getglobal(BuyCheap_Slider:GetName() .. 'Text'):SetText("Page Update Every " .. BuyCheap_roundFormat(2 + 0.2 * BuyCheap_Slider:GetValue(), 1) .. " s");
+		BuyCheap_waitDuration = 2 + 0.2 * BuyCheap_Slider:GetValue()
+	end
+		)
+	BlizzardOptionsPanel_Slider_Enable(BuyCheap_Slider)
+end
+
 -- logic
 
 function BuyCheap()
@@ -134,7 +191,7 @@ end
 function BuyCheap_Query(prices, weights, page, amount)
 	if BuyCheap_control then return nil end
 	QueryAuctionItems(BuyCheap_itemname, nil, nil, 0, 0, 0, page, 0, false)
-	BuyCheap_wait(4, BuyCheap_FindAllItems, prices, weights, page, amount)
+	BuyCheap_wait(BuyCheap_waitDuration, BuyCheap_FindAllItems, prices, weights, page, amount)
 end
 
 function BuyCheap_FindAllItems(prices, weights, page, amount)
@@ -170,7 +227,7 @@ end
 
 function BuyCheap_BuyQuery(page)
 	QueryAuctionItems(BuyCheap_itemname, nil, nil, 0, 0, 0, page, 0, false)
-	BuyCheap_wait(4, BuyCheap_BuyItems, page)
+	BuyCheap_wait(BuyCheap_waitDuration, BuyCheap_BuyItems, page)
 end
 
 function BuyCheap_booltoint(b)
@@ -203,7 +260,6 @@ function BuyCheap_BuyItems(cur_page)
 		end
 	end
 	if count_all > 0 then
-		print("skata", getn(itemstobid))
 		BuyCheap_itemstobid = itemstobid
 		BuyCheap_cur_page = cur_page
 		StaticPopup_Show("BUYCHEAP_POPUP_ONEPAGEITEMS", count_all)
