@@ -52,6 +52,7 @@ function BuyCheap_OnLoad()
 			MoneyFrame_Update(self.moneyFrame, BuyCheap_buyoutPrice);
 		end,
 		OnAccept = function()
+			local tempwaittime = getn(BuyCheap_itemstobid)
 			for i = 1, getn(BuyCheap_itemstobid) do
 				PlaceAuctionBid("list", BuyCheap_itemstobid[i][2], BuyCheap_itemstobid[i][1])
 				BuyCheap_itemi = BuyCheap_itemi - 1
@@ -59,7 +60,7 @@ function BuyCheap_OnLoad()
 			if BuyCheap_itemi == -1 then
 				StaticPopup_Show("BUYCHEAP_POPUP_END", "succesfully")
 			else
-				BuyCheap_wait(0.5, BuyCheap_BuyQuery, BuyCheap_cur_page)
+				BuyCheap_wait(1.1 * tempwaittime + 2.0, BuyCheap_BuyQuery, BuyCheap_cur_page)
 			end
 		end,
 		OnCancel = function()
