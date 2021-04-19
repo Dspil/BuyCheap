@@ -19,6 +19,7 @@ function BuyCheap_OnLoad()
 		button1 = "Buy",
 		button2 = "Cancel",
 		OnAccept = function()
+			StaticPopup_Show("BUYCHEAP_POPUP_WAIT", tostring(buycheap_global_amount_bought) .. "/" .. tostring(buycheap_amount_global));
 			BuyCheap_BuyItems(-1, 1)
 		end,
 		OnCancel = function()
@@ -49,6 +50,7 @@ function BuyCheap_OnLoad()
 		timeout = 0,
 		hasMoneyFrame = true,
 		OnShow = function(self, amount)
+			StaticPopup_Hide("BUYCHEAP_POPUP_WAIT");
 			MoneyFrame_Update(self.moneyFrame, BuyCheap_buyoutPrice);
 		end,
 		OnAccept = function()
@@ -57,16 +59,34 @@ function BuyCheap_OnLoad()
 				PlaceAuctionBid("list", BuyCheap_itemstobid[i][2], BuyCheap_itemstobid[i][1])
 				BuyCheap_itemi = BuyCheap_itemi - 1
 			end
+			buycheap_global_amount_bought = buycheap_global_amount_bought + buycheap_global_count_all
 			if BuyCheap_itemi == -1 then
-				StaticPopup_Show("BUYCHEAP_POPUP_END", "succesfully")
+				StaticPopup_Show("BUYCHEAP_POPUP_END", "succesfully");
 			else
+				StaticPopup_Show("BUYCHEAP_POPUP_WAIT", tostring(buycheap_global_amount_bought) .. "/" .. tostring(buycheap_amount_global));
 				BuyCheap_wait(1.1 * tempwaittime + 2.0, BuyCheap_BuyQuery, BuyCheap_cur_page)
 			end
 		end,
 		OnCancel = function()
+			StaticPopup_Show("BUYCHEAP_POPUP_WAIT", tostring(buycheap_global_amount_bought) .. "/" .. tostring(buycheap_amount_global));
 			BuyCheap_itemi = BuyCheap_itemi - getn(BuyCheap_itemstobid)
 			BuyCheap_wait(1.5, BuyCheap_BuyQuery, BuyCheap_cur_page + 1)
 		end,
+		whileDead = true,
+		hideOnEscape = true,
+		preferredIndex = 3,
+	}
+	
+	StaticPopupDialogs["BUYCHEAP_POPUP_WAIT"] = {
+		text = "Scanning AH for your items\nYou have currently purchased %s items.",
+		OnShow = function(self, amount)
+		end,
+		button1 = "Cancel",
+		OnAccept = function()
+			BuyCheap_control = true
+			BuyCheap_running = false
+		end,
+		timeout = 0,
 		whileDead = true,
 		hideOnEscape = true,
 		preferredIndex = 3,
@@ -182,6 +202,8 @@ end
 function BuyCheap()
 	if BuyCheap_running then return nil end
 	local amount = buycheap_amount:GetNumber()
+	buycheap_amount_global = amount
+	buycheap_global_amount_bought = 0
 	BuyCheap_control = false
 	BuyCheap_running = true
 	BuyCheap_itemname = BrowseName:GetText()
@@ -263,6 +285,7 @@ function BuyCheap_BuyItems(cur_page)
 	if count_all > 0 then
 		BuyCheap_itemstobid = itemstobid
 		BuyCheap_cur_page = cur_page
+		buycheap_global_count_all = count_all
 		StaticPopup_Show("BUYCHEAP_POPUP_ONEPAGEITEMS", count_all)
 	else
 		BuyCheap_BuyQuery(cur_page + 1)
