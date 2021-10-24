@@ -123,6 +123,9 @@ function BuyCheap_EventHandler(self, event, arg1)
       if BuyCheap_waitDuration == nil then
 	 BuyCheap_waitDuration = 4
       end
+      if BuyCheap_overSearch == nil then
+	 BuyCheap_overSearch = 1.1
+      end
       BuyCheap_BlizzardOptions()
    end
    if event == "AUCTION_HOUSE_SHOW" then
@@ -147,7 +150,6 @@ function BuyCheap_EventHandler(self, event, arg1)
       StaticPopup_Hide("BUYCHEAP_POPUP_ONEITEM")
       StaticPopup_Hide("BUYCHEAP_POPUP_END")
    end
-
 end
 
 function BuyCheap_roundFormat(a, b)
@@ -158,6 +160,10 @@ function BuyCheap_roundFormat(a, b)
       a = floor(a)
    end
    return tostring((a - a % 10 ^ b) / (10 ^ b)) .. "." .. tostring(floor(a % (10 ^ b)))
+end
+
+function BuyCheap_percentFormat(a)
+   return tostring(floor((a - 1) * 100)) .. "%"
 end
 
 function BuyCheap_BlizzardOptions()
@@ -184,8 +190,8 @@ function BuyCheap_BlizzardOptions()
    getglobal(BuyCheap_Slider:GetName() .. 'Low'):SetText('2');
    getglobal(BuyCheap_Slider:GetName() .. 'High'):SetText('8');
    getglobal(BuyCheap_Slider:GetName() .. 'Text'):SetText("Page Update Every " .. BuyCheap_roundFormat(BuyCheap_waitDuration, 1) .. " s");
-   BuyCheap_Slider:SetValue(floor((BuyCheap_waitDuration - 2) / 0.2 + 0.4))
    BuyCheap_Slider:SetMinMaxValues(0, 30)
+   BuyCheap_Slider:SetValue(floor((BuyCheap_waitDuration - 2) / 0.2 + 0.4))
    BuyCheap_Slider:SetValueStep(1)
    BuyCheap_Slider:SetPoint("TOPLEFT", BuyCheap_OptionsHeader, "BOTTOMLEFT", 0, -50)
    BuyCheap_Slider:SetScript("OnValueChanged", 
@@ -195,6 +201,26 @@ function BuyCheap_BlizzardOptions()
 			     end
    )
    BlizzardOptionsPanel_Slider_Enable(BuyCheap_Slider)
+
+   local BuyCheap_Slider2 = CreateFrame("Slider", "BuyCheap_Slider2", BuyCheap_Options, "OptionsSliderTemplate")
+   BuyCheap_Slider2:SetWidth(300)
+   BuyCheap_Slider2:SetHeight(20)
+   BuyCheap_Slider2:SetOrientation('HORIZONTAL')
+   BuyCheap_Slider2.tooltipText = 'Percentage of extra item quantity to search'
+   getglobal(BuyCheap_Slider2:GetName() .. 'Low'):SetText('0%');
+   getglobal(BuyCheap_Slider2:GetName() .. 'High'):SetText('100%');
+   getglobal(BuyCheap_Slider2:GetName() .. 'Text'):SetText("Search for +" .. BuyCheap_percentFormat(BuyCheap_overSearch) .. " items");
+   BuyCheap_Slider2:SetMinMaxValues(0, 100)
+   BuyCheap_Slider2:SetValue(floor(((BuyCheap_overSearch - 1) * 100)))
+   BuyCheap_Slider2:SetValueStep(1)
+   BuyCheap_Slider2:SetPoint("TOPLEFT", BuyCheap_Slider, "BOTTOMLEFT", 0, -50)
+   BuyCheap_Slider2:SetScript("OnValueChanged", 
+			     function ()
+				BuyCheap_overSearch = 1 + BuyCheap_Slider2:GetValue() / 100
+				getglobal(BuyCheap_Slider2:GetName() .. 'Text'):SetText("Search for +" .. BuyCheap_percentFormat(BuyCheap_overSearch) .. " items");
+			     end
+   )
+   BlizzardOptionsPanel_Slider_Enable(BuyCheap_Slider2)
 end
 
 -- logic
@@ -231,17 +257,17 @@ function BuyCheap_FindAllItems(prices, weights, page, amount)
    end
    if cur_num + current == total then
       StaticPopup_Hide("BUYCHEAP_POPUP_CANCEL")
-      BuyCheap_itemstobuy, BuyCheap_itemstobuy_price, BuyCheap_itemstobuy_len = BuyCheap_Knapsack(weights, prices, amount, total)
+      BuyCheap_itemstobuy, BuyCheap_itemstobuy_price, BuyCheap_itemstobuy_len, BuyCheap_itemstobuy_num = BuyCheap_Knapsack(weights, prices, amount, total)
       BuyCheap_weights = weights
       BuyCheap_prices = prices
       local formatter = ""
-      if amount > 1 then formatter = "s" end
+      if BuyCheap_itemstobuy_num > 1 then formatter = "s" end
       if BuyCheap_itemstobuy == nil then
 	 StaticPopup_Show("BUYCHEAP_POPUP_FAILURE", tostring(amount), formatter)
       else
 	 BuyCheap_totalitems = total
 	 BuyCheap_itemi = BuyCheap_itemstobuy_len - 1
-	 StaticPopup_Show("BUYCHEAP_POPUP_SUCCESS", tostring(amount), formatter)
+	 StaticPopup_Show("BUYCHEAP_POPUP_SUCCESS", tostring(BuyCheap_itemstobuy_num), formatter)
       end
    else
       BuyCheap_Query(prices, weights, page + 1, amount)
@@ -301,7 +327,7 @@ function BuyCheap_Knapsack(weights, prices, W, n)
    local cur1 = 0
    for item = 0, n do
       dpt[item] = {}
-      for weight = 0, W do
+      for weight = 0, ceil(W * BuyCheap_overSearch) do
 	 if item == 0 or weight == 0 then
 	    dpt[item][weight] = {0, false}
 	 elseif prices[item - 1] == 0 then
@@ -337,9 +363,17 @@ function BuyCheap_Knapsack(weights, prices, W, n)
 	 end
       end
    end
+   local minimumvalue = dpt[n][W][1]
+   local minimumvalueindex = W
+   for i = W + 1, ceil(W * BuyCheap_overSearch) do
+      if dpt[n][i][1] < minimumvalue then
+	 minimumvalue = dpt[n][i][1]
+	 minimumvalueindex = i
+      end
+   end
    local indices = {}
    local i = n
-   local j = W
+   local j = minimumvalueindex
    local c = 0
    while i > 0 do
       if dpt[i][j][2] then
@@ -352,7 +386,7 @@ function BuyCheap_Knapsack(weights, prices, W, n)
    if c == 0 then
       return nil, nil
    end
-   return indices, dpt[n][W][1], c
+   return indices, dpt[n][minimumvalueindex][1], c, minimumvalueindex
 end
 
 -- wait function below

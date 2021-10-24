@@ -3,6 +3,6 @@
 ## Title: BuyCheap
 ## Notes: Find smallest buyout price in auction house
 ## Version: 1.0
-## SavedVariablesPerCharacter: BuyCheap_waitDuration
+## SavedVariablesPerCharacter: BuyCheap_waitDuration, BuyCheap_overSearch
 BuyCheap.xml
 BuyCheap.lua
