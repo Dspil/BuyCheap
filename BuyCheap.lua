@@ -261,7 +261,11 @@ function BuyCheap_FindAllItems(prices, weights, page, amount)
       BuyCheap_weights = weights
       BuyCheap_prices = prices
       local formatter = ""
-      if BuyCheap_itemstobuy_num > 1 then formatter = "s" end
+      if not (BuyCheap_itemstobuy_num == nil) and (BuyCheap_itemstobuy_num > 1) then
+	 formatter = "s"
+      elseif amount > 1 then
+	 formatter = "s"
+      end
       if BuyCheap_itemstobuy == nil then
 	 StaticPopup_Show("BUYCHEAP_POPUP_FAILURE", tostring(amount), formatter)
       else
