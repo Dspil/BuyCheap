@@ -367,13 +367,18 @@ function BuyCheap_Knapsack(weights, prices, W, n)
 	 end
       end
    end
-   local minimumvalue = dpt[n][W][1]
+   local minimumvalue = -1
    local minimumvalueindex = W
-   for i = W + 1, ceil(W * BuyCheap_overSearch) do
-      if dpt[n][i][1] < minimumvalue then
-	 minimumvalue = dpt[n][i][1]
-	 minimumvalueindex = i
+   for i = W, ceil(W * BuyCheap_overSearch) do
+      if not (dpt[n][i][1] == 0) then
+	 if (dpt[n][i][1] < minimumvalue) or minimumvalue == -1 then
+	    minimumvalue = dpt[n][i][1]
+	    minimumvalueindex = i
+	 end
       end
+   end
+   if minimumvalue == -1 then
+      return nil, nil
    end
    local indices = {}
    local i = n
