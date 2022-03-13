@@ -95,7 +95,8 @@ function BuyCheap_OnLoad()
    StaticPopupDialogs["BUYCHEAP_POPUP_END"] = {
       text = "Process finished %s!",
       OnShow = function(self, didfail)
-	 BuyCheap_running = false
+	 local tempwaittime = getn(BuyCheap_itemstobid)
+	 BuyCheap_wait(1.1 * tempwaittime + 2.0, function () BuyCheap_running = false end)
       end,
       button1 = "Ok",
       timeout = 0,
